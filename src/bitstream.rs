@@ -1,3 +1,7 @@
+use std::fs;
+use std::fs::File;
+use std::io::{Error, Write};
+use std::path::Path;
 use std::vec;
 
 #[repr(u8)]
@@ -29,7 +33,7 @@ pub struct Bitstream {
 impl Bitstream {
     pub fn new() -> Self {
         Self {
-            data: vec![0; 1024],
+            data: Vec::new(),
             num_buf8: 0,
             buf8: 0,
             bitstream_pointer: 0,
@@ -39,26 +43,93 @@ impl Bitstream {
         }
     }
 
-    // pub fn new_from_bitstream(&mut self, bs2: Bitstream, nbits: u64) {
-    //     if nbits <= bs2.number_of_remaining_bits() {
-    //         self.data = vec![0; (8 * nbits).try_into().unwrap()];
+    pub fn new_from_bitstream(&mut self, mut bs2: Bitstream, nbits: u64) {
+        if nbits <= bs2.number_of_remaining_bits() {
+            self.data = vec![0; (8 * nbits).try_into().unwrap()];
 
-    //         let bit: bool;
+            let mut bit: bool;
 
-    //         for i in 0..nbits {
-    //             bit = bs2.read_bit();
-    //             self.write_bit(bit);
+            for _ in 0..nbits {
+                bit = bs2.read_bit();
+                self.write_bit(bit);
 
-    //             self.change_mode_to_read();
-    //         }
-    //     } else {
-    //         println!("Bitstream::Tried to cut more bits than I have.")
-    //     }
-    // }
+                self.change_mode_to_read();
+            }
+        } else {
+            panic!("Bitstream::Tried to cut more bits than I have.")
+        }
+    }
 
-    // pub fn new_from_file() {
+    pub fn read_from_file(&mut self, file_path: String) {
+        let file = fs::read(file_path);
+        let mut content: Vec<u8>;
 
-    // }
+        match file {
+            Ok(a) => content = a.clone(),
+            Err(b) => panic!("Erro ao abrir arquivo! {}", b),
+        }
+
+        if content[0] & 0xF0 == 0xE0 {
+            if content.len() == 1 {
+                panic!("The bitstream has only one byte (the header).");
+            } else {
+                self.reading_num_valid_bits_last_byte = content[0] & 0x0F;
+                self.data = content.split_off(1);
+            }
+        } else {
+            panic!("Header 0xE_ not matching!");
+        }
+    }
+
+    pub fn flush_to_file(&mut self, file_path: String) {
+        let path: &Path = Path::new(&file_path);
+        let file: Result<File, Error>;
+        if path.exists() {
+            file = File::create(file_path);
+        } else {
+            file = File::open(file_path);
+        }
+
+        match file {
+            Err(err) => panic!("Erro ao abrir o arquivo! {}", err),
+            Ok(mut f) => {
+                // Computes and writes the first byte
+                let num_valid_bits_in_last_byte: u8 =
+                    if self.num_buf8 == 0 { 8 } else { self.num_buf8 };
+                let first_byte: u8 = 0xE0 as u8 | num_valid_bits_in_last_byte as u8;
+
+                match f.write(&[first_byte]) {
+                    Err(err) => panic!("Erro na escrita do primeiro byte! {}", err),
+                    _ => (),
+                };
+
+                let mut i: usize = 0;
+                while i < self.data.len() {
+                    match f.write(&[self.data[i]]) {
+                        Err(err) => panic!("Erro na escrita do byte {}! {}", i, err),
+                        _ => (),
+                    };
+                    i += 1;
+                }
+                // Writes the data that is already packed to 8 bits.
+
+                if self.num_buf8 > 0 {
+                    // Computes and writes the last byte.
+                    let mut last_byte: u8 = self.buf8;
+                    let mut i: u8 = 8 - self.num_buf8;
+                    while i != 0 {
+                        last_byte <<= 1;
+                        i -= 1;
+                    }
+
+                    match f.write(&[last_byte]) {
+                        Err(err) => panic!("Erro na escrita do último byte! {}", err),
+                        _ => (),
+                    };
+                }
+            }
+        }
+    }
 
     pub fn write_bit(&mut self, bit: bool) {
         self.buf8 <<= 1;
@@ -215,4 +286,28 @@ impl Bitstream {
         num &= valid_mask;
         return num;
     }
+}
+
+#[test]
+fn bitstream_write_and_read_bit() {
+    let mut bs: Bitstream = Bitstream::new();
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(false);
+    bs.write_bit(true);
+
+    bs.change_mode_to_read();
+
+    assert_eq!(true, bs.read_bit());
+    assert_eq!(false, bs.read_bit());
+    assert_eq!(true, bs.read_bit());
+    assert_eq!(true, bs.read_bit());
+    assert_eq!(true, bs.read_bit());
+    assert_eq!(false, bs.read_bit());
+    assert_eq!(false, bs.read_bit());
+    assert_eq!(true, bs.read_bit());
 }
