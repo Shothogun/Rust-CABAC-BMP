@@ -20,3 +20,4 @@ fn create_properly_an_encoder() {
     };
     assert_eq!(encoder,x);
 }
+
