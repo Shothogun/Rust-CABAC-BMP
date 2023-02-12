@@ -75,6 +75,10 @@ impl Bitstream {
             } else {
                 self.reading_num_valid_bits_last_byte = content[0] & 0x0F;
                 self.data = content.split_off(1);
+                self.buf8 = self.data[0];
+                self.num_buf8 = 8;
+                self.bitstream_pointer = 1;
+                self.reading_status = BitstreamReadingStatus::Reading;
             }
         } else {
             panic!("Header 0xE_ not matching!");
@@ -82,13 +86,8 @@ impl Bitstream {
     }
 
     pub fn flush_to_file(&mut self, file_path: String) {
-        let path: &Path = Path::new(&file_path);
         let file: Result<File, Error>;
-        if path.exists() {
-            file = File::create(file_path);
-        } else {
-            file = File::open(file_path);
-        }
+        file = File::create(file_path);
 
         match file {
             Err(err) => panic!("Erro ao abrir o arquivo! {}", err),
@@ -310,4 +309,62 @@ fn bitstream_write_and_read_bit() {
     assert_eq!(false, bs.read_bit());
     assert_eq!(false, bs.read_bit());
     assert_eq!(true, bs.read_bit());
+}
+
+#[test]
+fn bitstream_flush_and_read_file() {
+    let mut bs: Bitstream = Bitstream::new();
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(false);
+    bs.write_bit(true);
+
+    bs.flush_to_file("/home/shothogun/Documents/Projects/Rust-CABAC-BMP/out.txt".to_string());
+
+    let mut bs2: Bitstream = Bitstream::new();
+    bs2.read_from_file("/home/shothogun/Documents/Projects/Rust-CABAC-BMP/out.txt".to_string());
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), true);
+}
+
+#[test]
+fn bitstream_flush_and_read_file_not_byte_length() {
+    let mut bs: Bitstream = Bitstream::new();
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(false);
+    bs.write_bit(true);
+    bs.write_bit(false);
+    bs.write_bit(false);
+    bs.write_bit(true);
+
+    bs.flush_to_file("/home/shothogun/Documents/Projects/Rust-CABAC-BMP/out.txt".to_string());
+
+    let mut bs2: Bitstream = Bitstream::new();
+    bs2.read_from_file("/home/shothogun/Documents/Projects/Rust-CABAC-BMP/out.txt".to_string());
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), true);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), false);
+    assert_eq!(bs2.read_bit(), true);
 }
