@@ -1,5 +1,5 @@
 use crate::bac_codec;
-use bitstream_io::{BitQueue, BE};
+use crate::bitstream;
 use std::clone::Clone;
 
 // Binary Arithemtic Encoder data
@@ -37,7 +37,7 @@ impl BACEncoder {
         &mut self,
         symbol: bool,
         c: bac_codec::ContextInfo,
-        mut bitstream: bitstream_io::BitQueue<BE, u64>,
+        mut bitstream: bitstream::Bitstream,
     ) {
         let is_mps = symbol == c.mps;
         let bac_codec::BACState { ln: l0, un: u0 } = self.state.clone();
@@ -66,7 +66,7 @@ impl BACEncoder {
             msb_u = (u1 & self.msb_mask) != 0;
 
             if msb_l == msb_u {
-                bitstream.push(1, if msb_l { 1 } else { 0 });
+                bitstream.write_bit(msb_l);
                 l1 = (l1 << 1) & self.valid_bits_mask;
                 u1 = ((u1 << 1) & self.valid_bits_mask) + 1;
             } else {
@@ -77,7 +77,7 @@ impl BACEncoder {
         self.bac_encoder_set_state(l1, u1)
     }
 
-    pub fn close_bitstream(&self, mut bitstream: bitstream_io::BitQueue<BE, u64>) {
+    pub fn close_bitstream(&self, mut bitstream: bitstream::Bitstream) {
         let mut i: u64 = self.m;
         let mut l0: u64 = self.state.ln;
         let mut bit: bool;
@@ -85,21 +85,14 @@ impl BACEncoder {
         while i > 0 {
             bit = (l0 & self.msb_mask) != 0;
             l0 = (l0 << 1) & self.valid_bits_mask;
-            bitstream.push(1, if bit { 1 } else { 0 });
+            bitstream.write_bit(bit);
             i -= 1;
         }
     }
-}
 
-#[test]
-fn use_bit_queue() {
-    let mut bits: bitstream_io::BitQueue<BE, u64> = bitstream_io::BitQueue::new();
-    bits.push(1, 1);
-    bits.push(1, 1);
-    bits.push(1, 0);
-    bits.push(1, 1);
-    bits.push(1, 0);
-    bits.push(3, 7);
-
-    assert_eq!(bits.value(), 215);
+    pub fn show_status(&self) {
+        println!("ENCODER STATUS: ");
+        println!("ln            : {}", self.state.ln);
+        println!("un            : {}", self.state.un);
+    }
 }
