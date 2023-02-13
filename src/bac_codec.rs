@@ -8,8 +8,8 @@ pub struct BACState {
 
 pub struct ContextInfo {
     pub mps: bool,
-    pub countMPS: u64,
-    pub totalCount: u64,
+    pub count_mps: u64,
+    pub total_count: u64,
 }
 
 impl Clone for BACState {

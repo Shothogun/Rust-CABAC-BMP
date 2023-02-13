@@ -41,17 +41,17 @@ impl BACEncoder {
     ) {
         let is_mps = symbol == c.mps;
         let bac_codec::BACState { ln: l0, un: u0 } = self.state.clone();
-        let mut l1: u64 = 0;
-        let mut u1: u64 = 0;
-        let mut temp: u64 = 0;
+        let mut l1: u64;
+        let mut u1: u64;
+        let temp: u64;
 
         if is_mps {
             l1 = l0;
-            temp = ((u0 - l0 + 1) * c.countMPS) / c.totalCount;
+            temp = ((u0 - l0 + 1) * c.count_mps) / c.total_count;
 
             u1 = l0 + temp - 1;
         } else {
-            temp = ((u0 - l0 + 1) * c.countMPS) / c.totalCount;
+            temp = ((u0 - l0 + 1) * c.count_mps) / c.total_count;
             l1 = l0 + temp;
 
             u1 = u0;

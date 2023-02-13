@@ -1,7 +1,6 @@
 use std::fs;
 use std::fs::File;
 use std::io::{Error, Write};
-use std::path::Path;
 use std::vec;
 
 #[repr(u8)]
